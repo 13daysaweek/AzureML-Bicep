@@ -4,6 +4,8 @@ param keyVaultAccessPolicyTargetObjectId string
 param storageAccountName string
 
 param mlWorkspaceName string
+param computeInstanceName string
+param mlClusterName string
 
 param appInsightsName string
 
@@ -234,5 +236,45 @@ resource mlWorkspace 'Microsoft.MachineLearningServices/workspaces@2020-06-01' =
     hbiWorkspace: false
     allowPublicAccessWhenBehindVnet: false
     discoveryUrl: 'https://${location}.experiments.azureml.net/discovery'
+  }
+}
+
+resource mlCompute 'Microsoft.MachineLearningServices/workspaces/computes@2021-01-01' = {
+  name: '${mlWorkspace.name}/${computeInstanceName}'
+  location: location
+  properties: {
+    computeType: 'ComputeInstance'
+    computeLocation: location
+    properties: {
+      vmSize: 'STANDARD_DS11_V2'
+      sshSettings: {
+        sshPublicAccess: 'Disabled'
+      }
+      applicationSharingPolicy: 'Shared'       
+    }
+  }
+}
+
+resource mlCluster 'Microsoft.MachineLearningServices/workspaces/computes@2021-01-01' = {
+  name: '${mlWorkspace.name}/${mlClusterName}'
+  location: location
+  identity: {
+    type: 'None'
+  }
+  properties: {
+    computeType: 'AmlCompute'
+    computeLocation: location
+    properties: {
+      vmSize: 'STANDARD_DS11_V2'
+      vmPriority: 'Dedicated'
+      scaleSettings: {
+        maxNodeCount: 8
+        minNodeCount: 0
+        nodeIdleTimeBeforeScaleDown: 'PT2M'
+      }
+      remoteLoginPortPublicAccess: 'Enabled'
+      osType: 'Linux'
+      isolatedNetwork: false
+    }
   }
 }
