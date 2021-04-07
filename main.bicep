@@ -153,3 +153,12 @@ resource mlSnapshotsContainer 'Microsoft.Storage/storageAccounts/blobServices/co
     publicAccess: 'None'
   } 
 }
+
+resource mlSnapshotZipsContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2019-06-01' = {
+  name: '${storage.name}/default/snapshotzips'
+  properties: {
+    defaultEncryptionScope: '$account-encryption-key'
+    denyEncryptionScopeOverride: false
+    publicAccess: 'None'
+  } 
+}
