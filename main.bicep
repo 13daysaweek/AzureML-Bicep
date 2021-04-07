@@ -162,3 +162,6 @@ resource mlSnapshotZipsContainer 'Microsoft.Storage/storageAccounts/blobServices
     publicAccess: 'None'
   } 
 }
+
+// TODO:  Need containers and shares that have GUID in share/container name, not sure how those map
+// to aml ws
