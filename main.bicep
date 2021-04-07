@@ -144,3 +144,12 @@ resource mlRevisionsContainer 'Microsoft.Storage/storageAccounts/blobServices/co
     publicAccess: 'None'
   } 
 }
+
+resource mlSnapshotsContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2019-06-01' = {
+  name: '${storage.name}/default/snapshots'
+  properties: {
+    defaultEncryptionScope: '$account-encryption-key'
+    denyEncryptionScopeOverride: false
+    publicAccess: 'None'
+  } 
+}
