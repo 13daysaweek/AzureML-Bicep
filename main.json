@@ -1,0 +1,332 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "keyVaultAccessPolicyTargetObjectId": {
+      "type": "string"
+    }
+  },
+  "functions": [],
+  "variables": {
+    "location": "[resourceGroup().location]",
+    "tenantId": "[subscription().tenantId]",
+    "resourceUniqueSuffix": "[uniqueString(resourceGroup().id)]",
+    "keyVaultName": "[format('keyvault{0}', variables('resourceUniqueSuffix'))]",
+    "storageAccountName": "[format('storage{0}', variables('resourceUniqueSuffix'))]",
+    "mlWorkspaceName": "[format('mlworkspace{0}', variables('resourceUniqueSuffix'))]",
+    "computeInstanceName": "[format('mlci{0}', variables('resourceUniqueSuffix'))]",
+    "mlClusterName": "[format('cl{0}', variables('resourceUniqueSuffix'))]",
+    "appInsightsName": "[format('appinisghts{0}', variables('resourceUniqueSuffix'))]",
+    "containerRegistryName": "[format('containerregistry{0}', variables('resourceUniqueSuffix'))]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.KeyVault/vaults",
+      "apiVersion": "2020-04-01-preview",
+      "name": "[variables('keyVaultName')]",
+      "location": "[variables('location')]",
+      "properties": {
+        "sku": {
+          "family": "A",
+          "name": "standard"
+        },
+        "tenantId": "[variables('tenantId')]",
+        "enabledForDeployment": false,
+        "enableSoftDelete": true,
+        "accessPolicies": [
+          {
+            "tenantId": "[variables('tenantId')]",
+            "objectId": "[parameters('keyVaultAccessPolicyTargetObjectId')]",
+            "permissions": {
+              "keys": [
+                "get",
+                "list",
+                "update",
+                "create",
+                "import",
+                "delete",
+                "recover",
+                "backup",
+                "restore"
+              ],
+              "secrets": [
+                "get",
+                "list",
+                "set",
+                "delete",
+                "recover",
+                "backup",
+                "restore"
+              ],
+              "certificates": [
+                "get",
+                "list",
+                "update",
+                "create",
+                "import",
+                "delete",
+                "recover",
+                "backup",
+                "restore",
+                "managecontacts",
+                "manageissuers",
+                "getissuers",
+                "listissuers",
+                "setissuers",
+                "deleteissuers"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts",
+      "apiVersion": "2020-08-01-preview",
+      "name": "[variables('storageAccountName')]",
+      "location": "[variables('location')]",
+      "sku": {
+        "name": "Standard_LRS",
+        "tier": "Standard"
+      },
+      "kind": "StorageV2",
+      "properties": {
+        "accessTier": "Hot",
+        "networkAcls": {
+          "bypass": "AzureServices",
+          "virtualNetworkRules": [],
+          "ipRules": [],
+          "defaultAction": "Allow"
+        },
+        "supportsHttpsTrafficOnly": true,
+        "encryption": {
+          "services": {
+            "file": {
+              "keyType": "Account",
+              "enabled": true
+            },
+            "blob": {
+              "keyType": "Account",
+              "enabled": true
+            }
+          },
+          "keySource": "Microsoft.Storage"
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts/blobServices",
+      "apiVersion": "2020-08-01-preview",
+      "name": "[format('{0}/default', variables('storageAccountName'))]",
+      "properties": {
+        "cors": {
+          "corsRules": [
+            {
+              "maxAgeInSeconds": 1800,
+              "allowedOrigins": [
+                "https://mlworkspace.azure.ai",
+                "https://ml.azure.com",
+                "https://*.ml.azure.com",
+                "https://mlworkspace.azureml-test.net"
+              ],
+              "allowedMethods": [
+                "GET",
+                "HEAD"
+              ],
+              "exposedHeaders": [
+                "*"
+              ],
+              "allowedHeaders": [
+                "*"
+              ]
+            }
+          ]
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
+      "apiVersion": "2019-06-01",
+      "name": "[format('{0}/default/azureml-metrics', variables('storageAccountName'))]",
+      "properties": {
+        "defaultEncryptionScope": "$account-encryption-key",
+        "denyEncryptionScopeOverride": false,
+        "publicAccess": "None"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
+      "apiVersion": "2019-06-01",
+      "name": "[format('{0}/default/revisions', variables('storageAccountName'))]",
+      "properties": {
+        "defaultEncryptionScope": "$account-encryption-key",
+        "denyEncryptionScopeOverride": false,
+        "publicAccess": "None"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
+      "apiVersion": "2019-06-01",
+      "name": "[format('{0}/default/snapshots', variables('storageAccountName'))]",
+      "properties": {
+        "defaultEncryptionScope": "$account-encryption-key",
+        "denyEncryptionScopeOverride": false,
+        "publicAccess": "None"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
+      "apiVersion": "2019-06-01",
+      "name": "[format('{0}/default/snapshotzips', variables('storageAccountName'))]",
+      "properties": {
+        "defaultEncryptionScope": "$account-encryption-key",
+        "denyEncryptionScopeOverride": false,
+        "publicAccess": "None"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Insights/components",
+      "apiVersion": "2020-02-02-preview",
+      "name": "[variables('appInsightsName')]",
+      "location": "[variables('location')]",
+      "kind": "web",
+      "properties": {
+        "Application_Type": "web",
+        "IngestionMode": "ApplicationInsights",
+        "publicNetworkAccessForIngestion": "Enabled",
+        "publicNetworkAccessForQuery": "Enabled"
+      }
+    },
+    {
+      "type": "Microsoft.ContainerRegistry/registries",
+      "apiVersion": "2020-11-01-preview",
+      "name": "[variables('containerRegistryName')]",
+      "location": "[variables('location')]",
+      "sku": {
+        "name": "Standard"
+      },
+      "properties": {
+        "adminUserEnabled": true,
+        "policies": {
+          "quarantinePolicy": {
+            "status": "disabled"
+          },
+          "trustPolicy": {
+            "type": "Notary",
+            "status": "disabled"
+          },
+          "retentionPolicy": {
+            "days": 7,
+            "status": "disabled"
+          }
+        },
+        "encryption": {
+          "status": "disabled"
+        },
+        "dataEndpointEnabled": false,
+        "publicNetworkAccess": "Enabled",
+        "networkRuleBypassOptions": "AzureServices",
+        "zoneRedundancy": "Disabled"
+      }
+    },
+    {
+      "type": "Microsoft.MachineLearningServices/workspaces",
+      "apiVersion": "2020-06-01",
+      "name": "[variables('mlWorkspaceName')]",
+      "location": "[variables('location')]",
+      "sku": {
+        "name": "Basic",
+        "tier": "Basic"
+      },
+      "identity": {
+        "type": "SystemAssigned"
+      },
+      "properties": {
+        "friendlyName": "[variables('mlWorkspaceName')]",
+        "storageAccount": "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]",
+        "containerRegistry": "[resourceId('Microsoft.ContainerRegistry/registries', variables('containerRegistryName'))]",
+        "keyVault": "[resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName'))]",
+        "applicationInsights": "[resourceId('Microsoft.Insights/components', variables('appInsightsName'))]",
+        "hbiWorkspace": false,
+        "allowPublicAccessWhenBehindVnet": false,
+        "discoveryUrl": "[format('https://{0}.experiments.azureml.net/discovery', variables('location'))]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Insights/components', variables('appInsightsName'))]",
+        "[resourceId('Microsoft.ContainerRegistry/registries', variables('containerRegistryName'))]",
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]",
+        "[resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.MachineLearningServices/workspaces/computes",
+      "apiVersion": "2021-01-01",
+      "name": "[format('{0}/{1}', variables('mlWorkspaceName'), variables('computeInstanceName'))]",
+      "location": "[variables('location')]",
+      "properties": {
+        "computeType": "ComputeInstance",
+        "computeLocation": "[variables('location')]",
+        "properties": {
+          "vmSize": "STANDARD_DS11_V2",
+          "sshSettings": {
+            "sshPublicAccess": "Disabled"
+          },
+          "applicationSharingPolicy": "Shared"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.MachineLearningServices/workspaces', variables('mlWorkspaceName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.MachineLearningServices/workspaces/computes",
+      "apiVersion": "2021-01-01",
+      "name": "[format('{0}/{1}', variables('mlWorkspaceName'), variables('mlClusterName'))]",
+      "location": "[variables('location')]",
+      "identity": {
+        "type": "None"
+      },
+      "properties": {
+        "computeType": "AmlCompute",
+        "computeLocation": "[variables('location')]",
+        "properties": {
+          "vmSize": "STANDARD_DS11_V2",
+          "vmPriority": "Dedicated",
+          "scaleSettings": {
+            "maxNodeCount": 8,
+            "minNodeCount": 0,
+            "nodeIdleTimeBeforeScaleDown": "PT2M"
+          },
+          "remoteLoginPortPublicAccess": "Enabled",
+          "osType": "Linux",
+          "isolatedNetwork": false
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.MachineLearningServices/workspaces', variables('mlWorkspaceName'))]"
+      ]
+    }
+  ],
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.3.1.62928",
+      "templateHash": "8742483981049789432"
+    }
+  }
+}
