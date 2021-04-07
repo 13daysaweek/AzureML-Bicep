@@ -3,6 +3,12 @@ param keyVaultAccessPolicyTargetObjectId string
 
 param storageAccountName string
 
+param mlWorkspaceName string
+
+param appInsightsName string
+
+param containerRegistryName string
+
 var location = resourceGroup().location
 var tenantId = subscription().tenantId
 
@@ -165,3 +171,68 @@ resource mlSnapshotZipsContainer 'Microsoft.Storage/storageAccounts/blobServices
 
 // TODO:  Need containers and shares that have GUID in share/container name, not sure how those map
 // to aml ws
+
+resource appInsights 'Microsoft.Insights/components@2020-02-02-preview' = {
+  name: appInsightsName
+  location: location
+  kind: 'web'
+  properties: {
+    Application_Type: 'web'
+    IngestionMode: 'ApplicationInsights'
+    publicNetworkAccessForIngestion: 'Enabled'
+    publicNetworkAccessForQuery: 'Enabled'
+  }
+}
+
+resource containerRegistry 'Microsoft.ContainerRegistry/registries@2020-11-01-preview' = {
+  name: containerRegistryName
+  location: location
+  sku: {
+    name: 'Standard'
+  }
+  properties: {
+     adminUserEnabled: true
+     policies: {
+       quarantinePolicy: {
+         status: 'disabled'
+       }
+       trustPolicy: {
+         type: 'Notary'
+         status: 'disabled'
+       }
+       retentionPolicy: {
+         days: 7
+         status: 'disabled'
+       }
+     }
+     encryption: {
+       status: 'disabled'
+     }
+     dataEndpointEnabled: false
+     publicNetworkAccess: 'Enabled'
+     networkRuleBypassOptions: 'AzureServices'
+     zoneRedundancy: 'Disabled'
+  }
+}
+
+resource mlWorkspace 'Microsoft.MachineLearningServices/workspaces@2020-06-01' = {
+  name: mlWorkspaceName
+  location: location
+  sku: {
+    name: 'Basic'
+    tier: 'Basic'
+  }
+  identity: {
+    type: 'SystemAssigned'
+  }
+  properties: {
+    friendlyName: mlWorkspaceName
+    storageAccount: storage.id
+    containerRegistry: containerRegistry.id
+    keyVault: vault.id
+    applicationInsights: appInsights.id
+    hbiWorkspace: false
+    allowPublicAccessWhenBehindVnet: false
+    discoveryUrl: 'https://${location}.experiments.azureml.net/discovery'
+  }
+}
